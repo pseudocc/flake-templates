@@ -18,9 +18,15 @@
           };
 
           options.profile = lib.mkOption {
-            type = lib.types.enum [ "minimal" "default" ];
+            type = lib.types.enum [ "minimal" "default" "complete" ];
             default = "default";
             description = "Rust toolchain profile.";
+          };
+
+          options.extensions = lib.mkOption {
+            type = lib.types.listOf lib.types.str;
+            default = [ "rust-analyzer" ];
+            description = "Additional Rust components to install.";
           };
         };
       in lib.types.submodule toolchainModule;
@@ -67,11 +73,12 @@
         overlays = [ inputs.rust-overlay.overlays.default ];
       };
 
-      rust-toolchain = with cfg.toolchain;
-        if channel == "nightly" && version == "latest" then
-          pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.${profile})
+      rust-toolchain = with cfg.toolchain; let
+        base = if channel == "nightly" && version == "latest" then
+          pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain)
         else
-          pkgs.rust-bin.${channel}.${version}.${profile};
+          pkgs.rust-bin.${channel}.${version};
+      in base.${profile}.override { inherit extensions; };
 
       cargo-nix = import cfg.workspace.cargo-nix {
         inherit pkgs;
