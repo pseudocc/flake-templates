@@ -33,6 +33,12 @@
       description = "Rust toolchain from rust-overlay.";
     };
 
+    dependencies = lib.mkOption {
+      type = with lib.types; functionTo (listOf package);
+      default = _: [];
+      description = "Extra native dependencies to include in devShell and build.";
+    };
+
     workspace = {
       check = lib.mkOption {
         type = lib.types.bool;
@@ -91,9 +97,11 @@
       devShells.default = pkgs.mkShell {
         name = "rust";
         packages = [
+          pkgs.bashInteractive
           pkgs.crate2nix
+          pkgs.pkg-config
           rust-toolchain
-        ];
+        ] ++ cfg.dependencies pkgs;
       };
 
       checks = let
