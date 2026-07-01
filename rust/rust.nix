@@ -28,15 +28,21 @@
             default = [ "rust-analyzer" ];
             description = "Additional Rust components to install.";
           };
+
+          options.targets = lib.mkOption {
+            type = lib.types.listOf lib.types.str;
+            default = [];
+            description = "Additional Rust target standard libraries to install.";
+          };
         };
       in lib.types.submodule toolchainModule;
       description = "Rust toolchain from rust-overlay.";
     };
 
-    dependencies = lib.mkOption {
-      type = with lib.types; functionTo (listOf package);
-      default = _: [];
-      description = "Extra native dependencies to include in devShell and build.";
+    devShells = lib.mkOption {
+      type = lib.types.functionTo lib.types.attrs;
+      default = _: {};
+      description = "Map pkgs.mkShell arguments to devShells, merged packages for rust toolchain and dependencies.";
     };
 
     workspace = {
@@ -84,7 +90,7 @@
           pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain)
         else
           pkgs.rust-bin.${channel}.${version};
-      in base.${profile}.override { inherit extensions; };
+      in base.${profile}.override { inherit extensions targets; };
 
       cargo-nix = import cfg.workspace.cargo-nix {
         inherit pkgs;
@@ -94,15 +100,15 @@
         };
       };
     in rec {
-      devShells.default = pkgs.mkShell {
+      devShells.default = let
+        additional = cfg.devShells pkgs;
+      in pkgs.mkShell (additional // {
         name = "rust";
         packages = [
-          pkgs.bashInteractive
           pkgs.crate2nix
-          pkgs.pkg-config
           rust-toolchain
-        ] ++ cfg.dependencies pkgs;
-      };
+        ] ++ additional.packages;
+      });
 
       checks = let
         mkCheck = name: build:
